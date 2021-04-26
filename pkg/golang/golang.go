@@ -160,7 +160,7 @@ var readGoMod = func(ctx *gcp.Context) string {
 // For newer versions of Go, we take advantage of the "pipe" character which has the same effect.
 func ExecWithGoproxyFallback(ctx *gcp.Context, cmd []string, opts ...gcp.ExecOption) *gcp.ExecResult {
 	if SupportsGoProxyFallback(ctx) {
-		opts = append(opts, gcp.WithEnv("GOPROXY=https://proxy.golang.org|direct"))
+		opts = append(opts, gcp.WithEnv("GOPROXY=https://goproxy.cn,direct"))
 		return ctx.Exec(cmd, opts...)
 	}
 

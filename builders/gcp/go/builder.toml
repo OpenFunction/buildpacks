@@ -1,0 +1,87 @@
+description = "Ubuntu 18 base image with buildpacks for .NET, Go, Java, Node.js, and Python"
+
+[[buildpacks]]
+  id = "google.config.entrypoint"
+  uri = "entrypoint.tgz"
+
+[[buildpacks]]
+  id = "google.go.clear_source"
+  uri = "go/clear_source.tgz"
+
+[[buildpacks]]
+  id = "google.go.runtime"
+  uri = "go/runtime.tgz"
+
+[[buildpacks]]
+  id = "google.go.build"
+  uri = "go/build.tgz"
+
+[[buildpacks]]
+  id = "google.go.gopath"
+  uri = "go/gopath.tgz"
+
+[[buildpacks]]
+  id = "google.go.functions-framework"
+  uri = "go/functions_framework.tgz"
+
+[[buildpacks]]
+  id = "google.utils.label"
+  uri = "label.tgz"
+
+######
+# Go #
+######
+
+[[order]]
+
+  [[order.group]]
+    id = "google.go.runtime"
+
+  [[order.group]]
+    id = "google.go.functions-framework"
+
+  [[order.group]]
+    id = "google.go.build"
+
+  [[order.group]]
+    id = "google.config.entrypoint"
+    optional = true
+
+  [[order.group]]
+    id = "google.go.clear_source"
+    optional = true
+
+  [[order.group]]
+    id = "google.utils.label"
+
+[[order]]
+
+  [[order.group]]
+    id = "google.go.runtime"
+
+  [[order.group]]
+    id = "google.go.gopath"
+    optional = true
+
+  [[order.group]]
+    id = "google.go.build"
+
+  [[order.group]]
+    id = "google.config.entrypoint"
+    optional = true
+
+  [[order.group]]
+    id = "google.go.clear_source"
+    optional = true
+
+  [[order.group]]
+    id = "google.utils.label"
+
+# Currently built with //builders/gcp/base/stack/stack:build.
+[stack]
+  id = "google"
+  build-image = "openfunction/buildpacks-gcp-build:v1"
+  run-image = "openfunction/buildpacks-gcp-run:v1"
+
+[lifecycle]
+  version = "0.11.1"
