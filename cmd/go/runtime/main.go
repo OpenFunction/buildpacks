@@ -19,8 +19,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/buildpacks/pkg/env"
@@ -33,9 +33,12 @@ const (
 	// goVersionURL is a URL to a JSON file that contains the latest Go version names.
 	goVersionURL   = "https://golang.org/dl/?mode=json"
 	goCNVersionURL = "https://golang.google.cn/dl/?mode=json"
-	goPkgName      = "go%s.linux-amd64.tar.gz"
+	goURL          = "https://dl.google.com/go/go%s.linux-amd64.tar.gz"
+	goCNURL        = "https://golang.google.cn/dl/go%s.linux-amd64.tar.gz"
 	goLayer        = "go"
 	versionKey     = "version"
+	CN             = "cn"
+	NONCN          = "non-cn"
 )
 
 func main() {
@@ -68,10 +71,17 @@ func buildFn(ctx *gcp.Context) error {
 		ctx.CacheMiss(goLayer)
 		ctx.ClearLayer(grl)
 
-		// Install Go in layer.
+		archiveURL := fmt.Sprintf(goURL, version)
+		if local := golang.DetectLocation(ctx); local == CN {
+			archiveURL = fmt.Sprintf(goCNURL, version)
+		}
+		if code := ctx.HTTPStatus(archiveURL); code != http.StatusOK {
+			return gcp.UserErrorf("Runtime version %s does not exist at %s (status %d). You can specify the version with %s.", version, archiveURL, code, env.RuntimeVersion)
+		}
+
+		// Download and install Go in layer.
 		ctx.Logf("Installing Go v%s", version)
-		goPkg := filepath.Join(ctx.BuildpackRoot(), fmt.Sprintf(goPkgName, version))
-		command := fmt.Sprintf("tar --directory %s -xzf %s --strip-components=1", grl.Path, goPkg)
+		command := fmt.Sprintf("curl --fail --show-error --silent --location --retry 3 %s | tar xz --directory %s --strip-components=1", archiveURL, grl.Path)
 		ctx.Exec([]string{"bash", "-c", command}, gcp.WithUserAttribution)
 		ctx.SetMetadata(grl, versionKey, version)
 	}
@@ -103,9 +113,11 @@ type goReleases []struct {
 
 // latestGoVersion returns the latest version of Go
 func latestGoVersion(ctx *gcp.Context) (string, error) {
-	result := ctx.Exec([]string{"curl", "--connect-timeout", "3", "--fail", "--show-error", "--silent", "--location", goVersionURL}, gcp.WithUserAttribution)
-	if result == nil {
+	var result *gcp.ExecResult
+	if local := golang.DetectLocation(ctx); local == CN {
 		result = ctx.Exec([]string{"curl", "--connect-timeout", "3", "--fail", "--show-error", "--silent", "--location", goCNVersionURL}, gcp.WithUserAttribution)
+	} else {
+		result = ctx.Exec([]string{"curl", "--connect-timeout", "3", "--fail", "--show-error", "--silent", "--location", goVersionURL}, gcp.WithUserAttribution)
 	}
 	return parseVersionJSON(result.Stdout)
 }

@@ -32,6 +32,8 @@ const (
 	OutBin = "main"
 	// BuildDirEnv is an environment variable that buildpacks can use to communicate the working directory to `go build`.
 	BuildDirEnv = "GOOGLE_INTERNAL_BUILD_DIR"
+	CN = "cn"
+	NONCN = "non-cn"
 )
 
 var (
@@ -160,7 +162,11 @@ var readGoMod = func(ctx *gcp.Context) string {
 // For newer versions of Go, we take advantage of the "pipe" character which has the same effect.
 func ExecWithGoproxyFallback(ctx *gcp.Context, cmd []string, opts ...gcp.ExecOption) *gcp.ExecResult {
 	if SupportsGoProxyFallback(ctx) {
-		opts = append(opts, gcp.WithEnv("GOPROXY=https://goproxy.cn,direct"))
+		goProxy := "GOPROXY=https://proxy.google.com|direct"
+		if local := DetectLocation(ctx); local == CN {
+			goProxy = "GOPROXY=https://goproxy.cn,direct"
+		}
+		opts = append(opts, gcp.WithEnv(goProxy))
 		return ctx.Exec(cmd, opts...)
 	}
 
@@ -172,4 +178,12 @@ func ExecWithGoproxyFallback(ctx *gcp.Context, cmd []string, opts ...gcp.ExecOpt
 
 	opts = append(opts, gcp.WithEnv("GOSUMDB=off", "GOPROXY=direct"))
 	return ctx.Exec(cmd, opts...)
+}
+
+func DetectLocation(ctx *gcp.Context) string {
+	if _, err := ctx.ExecWithErr([]string{"curl", "--connect-timeout", "1", "--silent", "https://googleapis.com"}, gcp.WithUserAttribution); err != nil {
+		return CN
+	} else {
+		return NONCN
+	}
 }
